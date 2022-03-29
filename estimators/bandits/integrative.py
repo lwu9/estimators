@@ -9,8 +9,8 @@ class Estimator(base.Estimator):
 
     def __init__(self, x_os, a_os, r_os, p_preds):
         # a_num: the size of the action space
-        a_num = 
-        # p_preds: an array of p_pred with length equal to a_num in a stationary fixed prediction policy
+        # p_preds: an 2D array with size m * a_num storing P(A=a|X=x), for all a in the action space and all x in the OS, in a stationary fixed prediction policy
+        a_num = len(pred[0, ])
         m, p = x_os.shape
         self.examples_count = m
         self.x_os = x_os
@@ -23,10 +23,10 @@ class Estimator(base.Estimator):
         # direct method for the policy value estimation with only the OS data
         x_test_os = np.column_stack((self.x_os, self.x_os*0))
         reg = gbr().fit(self.x_os[self.a_os == 0, :], self.r_os[self.a_os == 0])
-        r_est_os = reg.predict(x_test_os) * p_preds[0]
+        r_est_os = np.dot(reg.predict(x_test_os), p_preds[, 0])
         for ai in range(1, a_num):
             reg = gbr().fit(self.x_os[self.a_os == ai, :], self.r_os[self.a_os == ai])
-            r_est_os += reg.predict(x_test_os) * p_preds[ai]
+            r_est_os += np.dot(reg.predict(x_test_os), p_preds[, ai])
         self.dm_reward = np.mean(r_est_all)
     
     def add_example(self, x: float, a: int, r: float, p_pred: float, count: float = 1.0):
