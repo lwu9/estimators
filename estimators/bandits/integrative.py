@@ -16,7 +16,7 @@ class Estimator(base.Estimator):
         self.p_preds = p_preds
         self.m, p = x_os.shape
         self.examples_count = self.m
-        self.dm_reward = 0
+        self.dm_reward = [None] * self.a_num
         self.x_os = x_os
         self.a_os = a_os
         self.r_os = r_os
@@ -55,22 +55,23 @@ class Estimator(base.Estimator):
         self.x_int_test = np.row_stack((self.x_int_test, self.x_test))
     
     def dm_int_arr(self):
+        # Integrative method by the direct method with a batch of examples
         return self.dm(self.x_int, np.append(self.a_os, self.a_rct), np.append(self.r_os, self.r_rct), 
                        self.a_num, self.x_int_test, self.p_preds)
 
-    def dm_int_each(self, a, p_pred_arr):
-        # update the fitted reward function for the each coming example
+    def dm_int_each(self, a):
+        # Integrative method by updating the fitted reward function for the each coming example
         if len(self.a_rct) == 1:
             for ai in range(self.a_num):
                 reg = gbr().fit(self.x_int[np.append(self.a_os, self.a_rct) == ai, :], 
                                 np.append(self.r_os[self.a_os == ai], self.r_rct[self.a_rct == ai]))
-                self.dm_reward += np.dot(reg.predict(self.x_int_test), self.p_preds[:, ai])
+                self.dm_reward[ai] = np.dot(reg.predict(self.x_int_test), self.p_preds[:, ai])
                 self.regs[ai] = reg
         else:
             self.regs[a] = gbr().fit(self.x_int[np.append(self.a_os, self.a_rct) == a, :],
                                      np.append(self.r_os[self.a_os == a], self.r_rct[self.a_rct == a]))
             for ai in range(self.a_num):    
-                self.dm_reward += self.regs[ai].predict(self.x_test) * p_pred_arr[ai]
+                self.dm_reward[ai] = np.dot(self.regs[ai].predict(self.x_int_test), self.p_preds[:, ai])
         
     def get(self):
-        return self.dm_reward/self.examples_count
+        return sum(self.dm_reward)/self.examples_count

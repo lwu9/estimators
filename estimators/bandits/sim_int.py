@@ -1,17 +1,15 @@
 import numpy as np
-from sklearn.ensemble import GradientBoostingRegressor as gbr
 import numpy.random as rand
 
-from estimators.bandits import base
 from estimators.bandits import integrative
-from typing import Optional
+
 
 def simulate(N, p, p0, n, m, b):
     # Generate the population data
     diag = np.ones(p)
     cov = np.diag(diag)
     x = rand.multivariate_normal(diag, cov, (N, ))
-    u = rand.standard_normal(N)
+    u = rand.normal(0, 1, N)
     mu_x = x[:, 0] + u
     coef = np.append(np.ones(p - p0), np.zeros(p0))
     tau = np.matmul(x, coef) + np.matmul(np.power(x, 2), coef)
@@ -21,11 +19,6 @@ def simulate(N, p, p0, n, m, b):
     v_pi = np.mean(y1+y0) * 0.5
 
     # Generate the RCT
-    #exp_term = np.exp(-e0 - x[:, 0] + x[:, 1])
-    #s_prob = exp_term / (1 + exp_term)
-    #s1 = rand.binomial(1, s_prob, N)
-    #s1_idx = s1 == 1
-    #n = sum(s1)
     s1_idx = rand.choice(N, n, replace=False)
     x_rct = x[s1_idx, :]
     exp_term2 = np.exp(-1 - x_rct[:, 0] + x_rct[:, 1])
@@ -49,20 +42,31 @@ def simulate(N, p, p0, n, m, b):
             'x_os': x_os, 'a_os': a_os, 'y_os': y_os, 'a_os_prob': a_rct_prob, 'y1': y1, 'y0': y0, 
             'v_pi': v_pi, 'v_pi_ips_rct': v_pi_ips_rct, 'v_pi_snips_rct': v_pi_snips_rct}
 
-
+import random
 m = 2500
-n = 500
+n = 10000
 a_num = 2
-data = simulate(N=100000, p=9, p0=1, n=n, m=m, b=2.5)
-print(data['x_test'].shape)
-print(data['v_pi'], data['v_pi_snips_rct'])
 p_preds = np.ones((m, a_num))/a_num
-est = integrative.Estimator(data['x_os'], data['a_os'], data['y_os'], p_preds)
-for i in range(n):
-    a = data['a_rct'][i]
-    p_pred_arr = np.array([0.5, 0.5])
-    est.add_example(data['x_rct'][i, :], a, data['y_rct'][i], p_pred_arr)
-    est.dm_int_each(a, p_pred_arr)
-    if (i+1)%50 == 0:
-        print(i, est.dm_int_arr(), est.get())
-print(est.os(), est.rct())
+Rep = 100
+ns = [500, 1000, 2500, 5000, 10000]
+result = np.zeros((Rep, len(ns)*2 + 1))
+for seed in range(Rep):
+    random.seed(seed)
+    data = simulate(N=100000, p=9, p0=1, n=n, m=m, b=2.5)
+    est = integrative.Estimator(data['x_os'], data['a_os'], data['y_os'], p_preds)
+    v_os = est.os()
+    result[seed, 0] = abs(v_os - data['v_pi'])
+    #print(v_os, data['v_pi'], data['v_pi_snips_rct'])
+    ress = []
+    for i in range(n):
+        a = data['a_rct'][i]
+        p_pred_arr = np.array([0.5, 0.5])
+        est.add_example(data['x_rct'][i, :], a, data['y_rct'][i], p_pred_arr)
+        if i+1 in ns:
+            res = np.append(abs(data['v_pi'] - est.dm_int_arr()), 
+                            abs(data['v_pi'] - est.rct()))
+            ress = np.append(ress, res)
+    result[seed, 1:] = ress
+    if seed%10 == 0:
+        print(seed, result[seed, :])
+np.mean(result, 0)
