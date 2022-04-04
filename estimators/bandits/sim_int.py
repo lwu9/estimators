@@ -63,10 +63,27 @@ for seed in range(Rep):
         p_pred_arr = np.array([0.5, 0.5])
         est.add_example(data['x_rct'][i, :], a, data['y_rct'][i], p_pred_arr)
         if i+1 in ns:
-            res = np.append(abs(data['v_pi'] - est.dm_int_arr()), 
+            res = np.append(abs(data['v_pi'] - est.get()), 
                             abs(data['v_pi'] - est.rct()))
             ress = np.append(ress, res)
     result[seed, 1:] = ress
     if seed%10 == 0:
         print(seed, result[seed, :])
 np.mean(result, 0)
+# visualize the results
+import matplotlib.pyplot as plt
+plt.figure(figsize=(8,6))
+yerr = np.std(result, 0) / np.sqrt(Rep) * 1.96
+means = np.mean(result, 0)
+plt.errorbar(ns, means[np.array([1,3,5,7,9])], 
+            yerr = yerr[np.array([1,3,5,7,9])], label='dm_gbr_int')
+plt.errorbar(ns, means[np.array([2,4,6,8,10])], 
+            yerr = yerr[np.array([2,4,6,8,10])], label='dm_gbr_rct')
+plt.errorbar(ns, np.ones((5))*means[0], 
+            yerr = np.ones((5))*yerr[0], label='dm_gbr_os')
+
+plt.ylabel('Absolute error of value estimate')
+plt.xlabel('Sample size of the experimental data')
+plt.title('m = 2500')
+plt.legend()
+plt.show()    

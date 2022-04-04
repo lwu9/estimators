@@ -73,5 +73,9 @@ class Estimator(base.Estimator):
             for ai in range(self.a_num):    
                 self.dm_reward[ai] = np.dot(self.regs[ai].predict(self.x_int_test), self.p_preds[:, ai])
         
-    def get(self):
-        return sum(self.dm_reward)/self.examples_count
+    def get(self, batch=False):
+        if batch:
+            self.dm_int_each(self.a_rct[-1])
+            return sum(self.dm_reward)/self.examples_count
+        else:
+            self.dm_int_arr()
